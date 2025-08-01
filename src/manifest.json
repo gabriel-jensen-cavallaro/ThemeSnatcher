@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "ThemeSnatcher",
+  "version": "1.0.0",
+  "description": "Extract theme variables from any website",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "ThemeSnatcher"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.ts"]
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.ts"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}
