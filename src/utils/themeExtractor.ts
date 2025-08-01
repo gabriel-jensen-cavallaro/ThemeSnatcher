@@ -13,34 +13,73 @@ export class ThemeExtractor {
   private componentDetector = new ComponentDetector()
 
   extractTheme(): ThemeData {
-    this.colorFrequency.clear()
-    this.fontFrequency.clear()
-    this.spacingFrequency.clear()
+    try {
+      console.log('ThemeExtractor: Starting extraction...')
+      
+      this.colorFrequency.clear()
+      this.fontFrequency.clear()
+      this.spacingFrequency.clear()
 
-    // Get prioritized design elements
-    const elements = this.smartFilter.prioritizeDesignElements(filterDesignElements(getKeyElements()))
-    
-    elements.forEach(element => {
-      this.extractColorsFromElement(element)
-      this.extractFontsFromElement(element)
-      this.extractSpacingFromElement(element)
-    })
+      console.log('ThemeExtractor: Getting elements...')
+      // Get prioritized design elements
+      const keyElements = getKeyElements()
+      console.log('ThemeExtractor: Found key elements:', keyElements.length)
+      
+      const filteredElements = filterDesignElements(keyElements)
+      console.log('ThemeExtractor: Filtered elements:', filteredElements.length)
+      
+      const elements = this.smartFilter.prioritizeDesignElements(filteredElements)
+      console.log('ThemeExtractor: Prioritized elements:', elements.length)
+      
+      if (elements.length === 0) {
+        console.warn('ThemeExtractor: No elements found to analyze')
+      }
+      
+      console.log('ThemeExtractor: Extracting styles from elements...')
+      elements.forEach((element, index) => {
+        try {
+          this.extractColorsFromElement(element)
+          this.extractFontsFromElement(element)
+          this.extractSpacingFromElement(element)
+        } catch (error) {
+          console.warn(`ThemeExtractor: Error processing element ${index}:`, error)
+        }
+      })
 
-    const rawColors = this.processColors()
-    const colors = this.smartFilter.filterDesignColors(rawColors, elements)
-    const fonts = this.processFonts()
-    const spacing = this.processSpacing()
-    const components = this.componentDetector.detectComponents()
-    const isDarkMode = this.smartFilter.detectDarkMode()
+      console.log('ThemeExtractor: Processing extracted data...')
+      const rawColors = this.processColors()
+      console.log('ThemeExtractor: Raw colors:', rawColors.length)
+      
+      const colors = this.smartFilter.filterDesignColors(rawColors, elements)
+      console.log('ThemeExtractor: Filtered colors:', colors.length)
+      
+      const fonts = this.processFonts()
+      console.log('ThemeExtractor: Fonts:', fonts.length)
+      
+      const spacing = this.processSpacing()
+      console.log('ThemeExtractor: Spacing:', spacing.length)
+      
+      const components = this.componentDetector.detectComponents()
+      console.log('ThemeExtractor: Components:', components.length)
+      
+      const isDarkMode = this.smartFilter.detectDarkMode()
+      console.log('ThemeExtractor: Dark mode:', isDarkMode)
 
-    return {
-      colors,
-      fonts,
-      spacing,
-      components,
-      timestamp: Date.now(),
-      url: window.location.href,
-      isDarkMode
+      const result = {
+        colors,
+        fonts,
+        spacing,
+        components,
+        timestamp: Date.now(),
+        url: window.location.href,
+        isDarkMode
+      }
+      
+      console.log('ThemeExtractor: Extraction completed successfully', result)
+      return result
+    } catch (error) {
+      console.error('ThemeExtractor: Fatal error during extraction:', error)
+      throw error
     }
   }
 

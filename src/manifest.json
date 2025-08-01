@@ -5,7 +5,8 @@
   "description": "Extract theme variables from any website",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "action": {
     "default_popup": "src/popup.html",

@@ -1,29 +1,192 @@
 import { useState } from 'react'
 import { ThemeData } from '../types/theme'
+import { ThemeExporter } from '../utils/exporters'
 
 export default function Popup() {
   const [theme, setTheme] = useState<ThemeData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [exportFormat, setExportFormat] = useState<'tailwind' | 'scss' | 'css'>('tailwind')
+  const [showPreview, setShowPreview] = useState(false)
+  const exporter = new ThemeExporter()
 
   const extractTheme = async () => {
     setIsLoading(true)
     try {
+      console.log('Getting active tab...')
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      const response = await chrome.tabs.sendMessage(tab.id!, { action: 'extractTheme' })
+      console.log('Active tab:', tab)
       
-      if (response.success) {
-        setTheme(response.theme)
+      if (!tab.id) {
+        throw new Error('No active tab found')
+      }
+
+      // Check if we can access the tab (not a chrome:// page)
+      if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://')) {
+        throw new Error('Cannot extract themes from Chrome internal pages. Please navigate to a regular website.')
+      }
+
+      // Inject the content script directly with the theme extraction code
+      console.log('Injecting theme extraction code...')
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          // Inline theme extraction function
+          function extractThemeFromPage() {
+            const colors = new Map()
+            const fonts = new Map()
+            
+            // Get all visible elements
+            const elements = Array.from(document.querySelectorAll('*')).filter(el => {
+              const style = window.getComputedStyle(el)
+              const rect = el.getBoundingClientRect()
+              return style.display !== 'none' && 
+                     style.visibility !== 'hidden' && 
+                     rect.width > 0 && rect.height > 0
+            })
+            
+            console.log('Found elements:', elements.length)
+            
+            // Extract colors and fonts
+            elements.forEach(element => {
+              const style = window.getComputedStyle(element)
+              
+              // Colors
+              const color = style.color
+              const bgColor = style.backgroundColor
+              if (color && color !== 'rgba(0, 0, 0, 0)') {
+                colors.set(color, (colors.get(color) || 0) + 1)
+              }
+              if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)') {
+                colors.set(bgColor, (colors.get(bgColor) || 0) + 1)
+              }
+              
+              // Fonts
+              const fontFamily = style.fontFamily
+              const fontSize = style.fontSize
+              const fontWeight = style.fontWeight
+              if (fontFamily) {
+                const fontKey = `${fontFamily}|${fontWeight}|${fontSize}`
+                fonts.set(fontKey, (fonts.get(fontKey) || 0) + 1)
+              }
+            })
+            
+            // Helper functions
+            function parseRgb(color: any) {
+              if (color.startsWith('rgb')) {
+                const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+                if (match) {
+                  return { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) }
+                }
+              }
+              return { r: 0, g: 0, b: 0 }
+            }
+            
+            function rgbToHex(rgb: any) {
+              const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+              if (match) {
+                const r = parseInt(match[1])
+                const g = parseInt(match[2])
+                const b = parseInt(match[3])
+                return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
+              }
+              return rgb
+            }
+            
+            // Convert to arrays
+            const colorArray = Array.from(colors.entries())
+              .map(([color, freq]) => ({
+                hex: color.startsWith('rgb') ? rgbToHex(color) : color,
+                rgb: parseRgb(color),
+                frequency: freq,
+                elements: [],
+                category: 'text'
+              }))
+              .sort((a, b) => b.frequency - a.frequency)
+              .slice(0, 20)
+            
+            const fontArray = Array.from(fonts.entries())
+              .map(([fontKey]) => {
+                const [family, weight, size] = fontKey.split('|')
+                return {
+                  family: family.replace(/"/g, '').split(',')[0].trim(),
+                  weight,
+                  size,
+                  lineHeight: '1.5',
+                  elements: [],
+                  category: 'body'
+                }
+              })
+              .slice(0, 10)
+            
+            return {
+              colors: colorArray,
+              fonts: fontArray,
+              spacing: [],
+              components: [],
+              timestamp: Date.now(),
+              url: window.location.href,
+              isDarkMode: false
+            }
+          }
+          
+          return extractThemeFromPage()
+        }
+      })
+      
+      console.log('Theme extraction result:', result)
+      
+      if (result?.result) {
+        setTheme(result.result as ThemeData)
       } else {
-        console.error('Theme extraction failed:', response.error)
-        alert(`Failed to extract theme: ${response.error}`)
+        throw new Error('Failed to extract theme data')
       }
     } catch (error) {
       console.error('Error extracting theme:', error)
-      alert('Failed to extract theme. Make sure you\'re on a valid webpage.')
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to extract theme: ${errorMsg}`)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const generateExport = (): string => {
+    if (!theme) return ''
+    
+    switch (exportFormat) {
+      case 'tailwind':
+        return exporter.exportTailwindConfig(theme)
+      case 'scss':
+        return exporter.exportSCSSVariables(theme)
+      case 'css':
+        return exporter.exportCSSCustomProperties(theme)
+      default:
+        return ''
+    }
+  }
+
+  const copyToClipboard = async () => {
+    const exportedCode = generateExport()
+    try {
+      await navigator.clipboard.writeText(exportedCode)
+      // Could add a toast notification here
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
+  }
+
+  const downloadFile = () => {
+    const exportedCode = generateExport()
+    const extensions = { tailwind: 'js', scss: 'scss', css: 'css' }
+    const extension = extensions[exportFormat]
+    const filename = `theme-variables.${extension}`
+    
+    const blob = new Blob([exportedCode], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -35,7 +198,7 @@ export default function Popup() {
           disabled={isLoading}
           className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
         >
-          {isLoading ? 'Extracting...' : 'Extract Theme'}
+          {isLoading ? 'Snatching...' : 'Snatch theme'}
         </button>
       </div>
 
@@ -133,9 +296,26 @@ export default function Popup() {
             </div>
           )}
 
-          <div className="pt-2 border-t border-gray-200">
-            <button className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-              Copy to Clipboard
+          <div className="pt-2 border-t border-gray-200 space-y-2">
+            <div className="flex gap-2">
+              <button 
+                onClick={copyToClipboard}
+                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+              >
+                Copy to Clipboard
+              </button>
+              <button 
+                onClick={downloadFile}
+                className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                Download
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowPreview(!showPreview)}
+              className="w-full px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+            >
+              {showPreview ? 'Hide Preview' : 'Show Preview'}
             </button>
           </div>
         </div>
@@ -144,6 +324,24 @@ export default function Popup() {
       {!theme && !isLoading && (
         <div className="text-center py-8 text-gray-500">
           <p className="text-sm">Click "Extract Theme" to analyze the current page</p>
+        </div>
+      )}
+
+      {theme && showPreview && (
+        <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-medium text-gray-700">Preview ({exportFormat})</h4>
+            <button 
+              onClick={() => setShowPreview(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ×
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap text-xs text-gray-600 max-h-32 overflow-y-auto">
+            {generateExport().slice(0, 500)}
+            {generateExport().length > 500 && '...'}
+          </pre>
         </div>
       )}
     </div>
