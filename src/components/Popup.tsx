@@ -190,160 +190,206 @@ export default function Popup() {
   }
 
   return (
-    <div className="w-80 p-4 bg-white">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold text-gray-900">ThemeSnatcher</h1>
-        <button
-          onClick={extractTheme}
-          disabled={isLoading}
-          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isLoading ? 'Snatching...' : 'Snatch theme'}
-        </button>
+    <div className="popup-container">
+      {/* Header */}
+      <div className="header">
+        <div className="header-content">
+          <div className="logo">
+            <div className="logo-icon">TS</div>
+            <h1 className="title">ThemeSnatcher</h1>
+          </div>
+          <button
+            onClick={extractTheme}
+            disabled={isLoading}
+            className="extract-btn"
+          >
+            {isLoading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Analyzing...
+              </>
+            ) : (
+              'Snatch Theme'
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Export Format:</label>
-        <select
-          value={exportFormat}
-          onChange={(e) => setExportFormat(e.target.value as 'tailwind' | 'scss' | 'css')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-        >
-          <option value="tailwind">Tailwind Config</option>
-          <option value="scss">SCSS Variables</option>
-          <option value="css">CSS Custom Properties</option>
-        </select>
-      </div>
-
-      {theme && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Colors ({theme.colors.length})</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {theme.colors.slice(0, 12).map((color, index) => (
-                <div key={index} className="flex flex-col items-center">
-                  <div
-                    className="w-8 h-8 rounded border border-gray-300"
-                    style={{ backgroundColor: color.hex }}
-                    title={`${color.hex} (${color.frequency} uses)`}
-                  />
-                  <span className="text-xs text-gray-600 mt-1">{color.hex}</span>
-                  <span className="text-xs text-gray-400">{color.category}</span>
-                </div>
+      {/* Content */}
+      <div className="content">
+        {/* Export Format Selection */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">Export Format</h3>
+            <div className="format-selector">
+              {['tailwind', 'scss', 'css'].map((format) => (
+                <button
+                  key={format}
+                  onClick={() => setExportFormat(format as 'tailwind' | 'scss' | 'css')}
+                  className={`format-btn ${exportFormat === format ? 'active' : ''}`}
+                >
+                  {format === 'tailwind' ? 'Tailwind' : format.toUpperCase()}
+                </button>
               ))}
             </div>
-            {theme.colors.length > 12 && (
-              <p className="text-xs text-gray-500 mt-2">+{theme.colors.length - 12} more colors</p>
-            )}
           </div>
+        </div>
 
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Fonts ({theme.fonts.length})</h3>
-            <div className="space-y-1">
-              {theme.fonts.slice(0, 6).map((font, index) => (
-                <div key={index} className="text-sm text-gray-600 px-2 py-1 bg-gray-50 rounded">
-                  <div className="font-medium">{font.family}</div>
-                  <div className="text-xs text-gray-500">
-                    {font.weight} • {font.size} • {font.category}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {theme.fonts.length > 6 && (
-              <p className="text-xs text-gray-500 mt-2">+{theme.fonts.length - 6} more fonts</p>
-            )}
-          </div>
-
-          {theme.spacing.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Spacing ({theme.spacing.length})</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {theme.spacing.slice(0, 8).map((spacing, index) => (
-                  <div key={index} className="text-xs text-gray-600 px-2 py-1 bg-gray-50 rounded">
-                    <div className="font-medium">{spacing.tailwindClass}</div>
-                    <div className="text-xs text-gray-500">{spacing.value} ({spacing.frequency}x)</div>
-                  </div>
-                ))}
+        {theme && (
+          <>
+            {/* Colors Section */}
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  Colors <span className="count-badge">{theme.colors.length}</span>
+                </h3>
               </div>
-            </div>
-          )}
-
-          {theme.components.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Components ({theme.components.length})</h3>
-              <div className="space-y-1">
-                {theme.components.slice(0, 4).map((component, index) => (
-                  <div key={index} className="text-xs text-gray-600 px-2 py-1 bg-gray-50 rounded">
-                    <div className="font-medium capitalize">{component.type}</div>
-                    <div className="text-xs text-gray-500">
-                      {component.styles.borderRadius && `radius: ${component.styles.borderRadius}`}
-                      {component.styles.boxShadow && component.styles.boxShadow !== 'none' && ` • shadow`}
-                      {` • ${component.frequency}x`}
+              <div className="colors-grid">
+                {theme.colors.slice(0, 18).map((color, index) => (
+                  <div key={index}>
+                    <div
+                      className="color-swatch"
+                      style={{ backgroundColor: color.hex }}
+                      title={`${color.hex} (used ${color.frequency} times)`}
+                    />
+                    <div className="color-info">
+                      <div className="color-hex">{color.hex}</div>
                     </div>
                   </div>
                 ))}
               </div>
-              {theme.components.length > 4 && (
-                <p className="text-xs text-gray-500 mt-2">+{theme.components.length - 4} more components</p>
+              {theme.colors.length > 18 && (
+                <div style={{ textAlign: 'center', padding: '8px', fontSize: '12px', color: '#64748b' }}>
+                  +{theme.colors.length - 18} more colors
+                </div>
               )}
             </div>
-          )}
 
-          {theme.isDarkMode !== undefined && (
-            <div className="text-xs text-gray-500 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${theme.isDarkMode ? 'bg-gray-800' : 'bg-yellow-400'}`}></span>
-              {theme.isDarkMode ? 'Dark Mode' : 'Light Mode'}
+            {/* Fonts Section */}
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  Typography <span className="count-badge">{theme.fonts.length}</span>
+                </h3>
+              </div>
+              <div className="font-list">
+                {theme.fonts.slice(0, 5).map((font, index) => (
+                  <div key={index} className="font-item">
+                    <div className="font-name" style={{ fontFamily: font.family }}>
+                      {font.family}
+                    </div>
+                    <div className="font-details">
+                      <span className="font-tag">{font.weight}</span>
+                      <span className="font-tag">{font.size}</span>
+                    </div>
+                    <div className="font-sample" style={{ fontFamily: font.family }}>
+                      The quick brown fox jumps over the lazy dog
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {theme.fonts.length > 5 && (
+                <div style={{ textAlign: 'center', padding: '8px', fontSize: '12px', color: '#64748b' }}>
+                  +{theme.fonts.length - 5} more fonts
+                </div>
+              )}
             </div>
-          )}
 
-          <div className="pt-2 border-t border-gray-200 space-y-2">
-            <div className="flex gap-2">
+            {/* Actions */}
+            <div className="card">
+              <div className="actions">
+                <div className="action-row">
+                  <button onClick={copyToClipboard} className="btn-primary">
+                    📋 Copy Code
+                  </button>
+                  <button onClick={downloadFile} className="btn-secondary">
+                    💾 Download
+                  </button>
+                </div>
+                <button 
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="btn-outline"
+                >
+                  {showPreview ? '🙈 Hide Preview' : '👁️ Show Preview'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {!theme && !isLoading && (
+          <div className="card">
+            <div className="empty-state">
+              <div className="empty-icon">🎨</div>
+              <h3 className="empty-title">Ready to Snatch!</h3>
+              <p className="empty-text">Navigate to any website and click "Snatch Theme" to extract its design system</p>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Preview with Visual Colors */}
+        {theme && showPreview && (
+          <div className="preview-panel">
+            <div className="preview-header">
+              <h4 className="preview-title">Visual Preview</h4>
               <button 
-                onClick={copyToClipboard}
-                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                onClick={() => setShowPreview(false)}
+                className="close-btn"
               >
-                Copy to Clipboard
-              </button>
-              <button 
-                onClick={downloadFile}
-                className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-              >
-                Download
+                ✕
               </button>
             </div>
-            <button 
-              onClick={() => setShowPreview(!showPreview)}
-              className="w-full px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
-            >
-              {showPreview ? 'Hide Preview' : 'Show Preview'}
-            </button>
-          </div>
-        </div>
-      )}
+            
+            <div className="preview-content">
+              {/* Color Palette Preview */}
+              <div className="preview-section">
+                <h5 className="section-title">Color Palette</h5>
+                <div className="color-strip">
+                  {theme.colors.slice(0, 10).map((color, index) => (
+                    <div
+                      key={index}
+                      className="color-chip"
+                      style={{ backgroundColor: color.hex }}
+                      title={color.hex}
+                    />
+                  ))}
+                </div>
+              </div>
 
-      {!theme && !isLoading && (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-sm">Click "Extract Theme" to analyze the current page</p>
-        </div>
-      )}
+              {/* Typography Preview */}
+              <div className="preview-section">
+                <h5 className="section-title">Typography Sample</h5>
+                <div className="font-preview">
+                  {theme.fonts.slice(0, 3).map((font, index) => (
+                    <div
+                      key={index}
+                      className="font-preview-item"
+                      style={{ 
+                        fontFamily: font.family,
+                        fontWeight: font.weight,
+                        fontSize: font.size === '16px' ? '14px' : '12px'
+                      }}
+                    >
+                      {font.family} - Sample text
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-      {theme && showPreview && (
-        <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-gray-700">Preview ({exportFormat})</h4>
-            <button 
-              onClick={() => setShowPreview(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+              {/* Code Preview */}
+              <div className="preview-section">
+                <h5 className="section-title">Code Export ({exportFormat})</h5>
+                <div className="code-preview">
+                  <pre>
+                    {generateExport().slice(0, 600)}
+                    {generateExport().length > 600 && '\n...\n// Truncated for preview'}
+                  </pre>
+                </div>
+              </div>
+            </div>
           </div>
-          <pre className="whitespace-pre-wrap text-xs text-gray-600 max-h-32 overflow-y-auto">
-            {generateExport().slice(0, 500)}
-            {generateExport().length > 500 && '...'}
-          </pre>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
