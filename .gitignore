@@ -25,3 +25,4 @@ dist-ssr
 
 # Extension
 web-ext-artifacts/
+node_modules
