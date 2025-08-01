@@ -1,31 +1,46 @@
-import { ColorInfo, FontInfo, ThemeData } from '../types/theme'
+import { ColorInfo, FontInfo, ThemeData, SpacingInfo } from '../types/theme'
 import { parseColor, rgbToHex, groupSimilarColors } from './colorUtils'
 import { getKeyElements, getComputedStyleProperty, getElementSelector, filterDesignElements } from './domUtils'
+import { ComponentDetector } from './componentDetector'
+import { SmartFilter } from './smartFiltering'
+import { parseSpacing, getTailwindSpacingClass } from './spacingUtils'
 
 export class ThemeExtractor {
   private colorFrequency = new Map<string, { count: number; elements: string[]; category: string }>()
   private fontFrequency = new Map<string, { count: number; elements: string[]; category: string }>()
+  private spacingFrequency = new Map<string, { count: number; elements: string[]; type: 'margin' | 'padding' }>()
+  private smartFilter = new SmartFilter()
+  private componentDetector = new ComponentDetector()
 
   extractTheme(): ThemeData {
     this.colorFrequency.clear()
     this.fontFrequency.clear()
+    this.spacingFrequency.clear()
 
-    const elements = filterDesignElements(getKeyElements())
+    // Get prioritized design elements
+    const elements = this.smartFilter.prioritizeDesignElements(filterDesignElements(getKeyElements()))
     
     elements.forEach(element => {
       this.extractColorsFromElement(element)
       this.extractFontsFromElement(element)
+      this.extractSpacingFromElement(element)
     })
 
-    const colors = this.processColors()
+    const rawColors = this.processColors()
+    const colors = this.smartFilter.filterDesignColors(rawColors, elements)
     const fonts = this.processFonts()
+    const spacing = this.processSpacing()
+    const components = this.componentDetector.detectComponents()
+    const isDarkMode = this.smartFilter.detectDarkMode()
 
     return {
       colors,
       fonts,
-      spacing: [], // Will implement in Phase 3
+      spacing,
+      components,
       timestamp: Date.now(),
-      url: window.location.href
+      url: window.location.href,
+      isDarkMode
     }
   }
 
@@ -179,5 +194,61 @@ export class ThemeExtractor {
                      this.fontFrequency.get(`${b.family}|${b.weight}|${b.size}`)!.count)
       .reverse()
       .slice(0, 10) // Limit to top 10 fonts
+  }
+
+  private extractSpacingFromElement(element: Element): void {
+    const margin = getComputedStyleProperty(element, 'margin')
+    const padding = getComputedStyleProperty(element, 'padding')
+    const selector = getElementSelector(element)
+
+    if (margin && margin !== '0px') {
+      this.addSpacingToFrequency(margin, selector, 'margin')
+    }
+
+    if (padding && padding !== '0px') {
+      this.addSpacingToFrequency(padding, selector, 'padding')
+    }
+  }
+
+  private addSpacingToFrequency(value: string, selector: string, type: 'margin' | 'padding'): void {
+    // Parse shorthand values (e.g., "10px 20px" -> ["10px", "20px"])
+    const values = value.split(' ').filter(v => v && v !== '0px')
+    
+    values.forEach(val => {
+      const pixels = parseSpacing(val)
+      if (pixels > 0 && pixels < 200) { // Reasonable spacing range
+        const key = `${type}|${val}`
+        
+        if (this.spacingFrequency.has(key)) {
+          const existing = this.spacingFrequency.get(key)!
+          existing.count++
+          if (!existing.elements.includes(selector)) {
+            existing.elements.push(selector)
+          }
+        } else {
+          this.spacingFrequency.set(key, {
+            count: 1,
+            elements: [selector],
+            type
+          })
+        }
+      }
+    })
+  }
+
+  private processSpacing(): SpacingInfo[] {
+    return Array.from(this.spacingFrequency.entries())
+      .map(([key, data]) => {
+        const [type, value] = key.split('|')
+        return {
+          type: type as 'margin' | 'padding',
+          value,
+          tailwindClass: getTailwindSpacingClass(type as 'margin' | 'padding', value),
+          frequency: data.count,
+          elements: data.elements
+        }
+      })
+      .sort((a, b) => b.frequency - a.frequency)
+      .slice(0, 12) // Limit to top 12 spacing values
   }
 }

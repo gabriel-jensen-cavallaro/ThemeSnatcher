@@ -91,6 +91,48 @@ export default function Popup() {
             )}
           </div>
 
+          {theme.spacing.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Spacing ({theme.spacing.length})</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {theme.spacing.slice(0, 8).map((spacing, index) => (
+                  <div key={index} className="text-xs text-gray-600 px-2 py-1 bg-gray-50 rounded">
+                    <div className="font-medium">{spacing.tailwindClass}</div>
+                    <div className="text-xs text-gray-500">{spacing.value} ({spacing.frequency}x)</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {theme.components.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Components ({theme.components.length})</h3>
+              <div className="space-y-1">
+                {theme.components.slice(0, 4).map((component, index) => (
+                  <div key={index} className="text-xs text-gray-600 px-2 py-1 bg-gray-50 rounded">
+                    <div className="font-medium capitalize">{component.type}</div>
+                    <div className="text-xs text-gray-500">
+                      {component.styles.borderRadius && `radius: ${component.styles.borderRadius}`}
+                      {component.styles.boxShadow && component.styles.boxShadow !== 'none' && ` • shadow`}
+                      {` • ${component.frequency}x`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {theme.components.length > 4 && (
+                <p className="text-xs text-gray-500 mt-2">+{theme.components.length - 4} more components</p>
+              )}
+            </div>
+          )}
+
+          {theme.isDarkMode !== undefined && (
+            <div className="text-xs text-gray-500 flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${theme.isDarkMode ? 'bg-gray-800' : 'bg-yellow-400'}`}></span>
+              {theme.isDarkMode ? 'Dark Mode' : 'Light Mode'}
+            </div>
+          )}
+
           <div className="pt-2 border-t border-gray-200">
             <button className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
               Copy to Clipboard

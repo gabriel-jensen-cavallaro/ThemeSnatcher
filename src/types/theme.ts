@@ -16,17 +16,35 @@ export interface FontInfo {
 }
 
 export interface SpacingInfo {
-  margin: string
-  padding: string
+  type: 'margin' | 'padding'
+  value: string
+  tailwindClass: string
+  frequency: number
   elements: string[]
+}
+
+export interface ComponentInfo {
+  type: 'button' | 'card' | 'form' | 'nav' | 'hero' | 'container'
+  selector: string
+  styles: {
+    borderRadius?: string
+    boxShadow?: string
+    border?: string
+    backgroundColor?: string
+    padding?: string
+    margin?: string
+  }
+  frequency: number
 }
 
 export interface ThemeData {
   colors: ColorInfo[]
   fonts: FontInfo[]
   spacing: SpacingInfo[]
+  components: ComponentInfo[]
   timestamp: number
   url: string
+  isDarkMode?: boolean
 }
 
 export interface ExtractedTheme {
