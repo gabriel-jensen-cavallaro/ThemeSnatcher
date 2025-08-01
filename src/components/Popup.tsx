@@ -1,10 +1,5 @@
 import { useState } from 'react'
-
-interface ThemeData {
-  colors: string[]
-  fonts: string[]
-  timestamp: number
-}
+import { ThemeData } from '../types/theme'
 
 export default function Popup() {
   const [theme, setTheme] = useState<ThemeData | null>(null)
@@ -16,9 +11,16 @@ export default function Popup() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       const response = await chrome.tabs.sendMessage(tab.id!, { action: 'extractTheme' })
-      setTheme(response.theme)
+      
+      if (response.success) {
+        setTheme(response.theme)
+      } else {
+        console.error('Theme extraction failed:', response.error)
+        alert(`Failed to extract theme: ${response.error}`)
+      }
     } catch (error) {
       console.error('Error extracting theme:', error)
+      alert('Failed to extract theme. Make sure you\'re on a valid webpage.')
     } finally {
       setIsLoading(false)
     }
@@ -53,29 +55,40 @@ export default function Popup() {
       {theme && (
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Colors</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Colors ({theme.colors.length})</h3>
             <div className="grid grid-cols-4 gap-2">
-              {theme.colors.map((color, index) => (
+              {theme.colors.slice(0, 12).map((color, index) => (
                 <div key={index} className="flex flex-col items-center">
                   <div
                     className="w-8 h-8 rounded border border-gray-300"
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: color.hex }}
+                    title={`${color.hex} (${color.frequency} uses)`}
                   />
-                  <span className="text-xs text-gray-600 mt-1">{color}</span>
+                  <span className="text-xs text-gray-600 mt-1">{color.hex}</span>
+                  <span className="text-xs text-gray-400">{color.category}</span>
                 </div>
               ))}
             </div>
+            {theme.colors.length > 12 && (
+              <p className="text-xs text-gray-500 mt-2">+{theme.colors.length - 12} more colors</p>
+            )}
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Fonts</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Fonts ({theme.fonts.length})</h3>
             <div className="space-y-1">
-              {theme.fonts.map((font, index) => (
+              {theme.fonts.slice(0, 6).map((font, index) => (
                 <div key={index} className="text-sm text-gray-600 px-2 py-1 bg-gray-50 rounded">
-                  {font}
+                  <div className="font-medium">{font.family}</div>
+                  <div className="text-xs text-gray-500">
+                    {font.weight} • {font.size} • {font.category}
+                  </div>
                 </div>
               ))}
             </div>
+            {theme.fonts.length > 6 && (
+              <p className="text-xs text-gray-500 mt-2">+{theme.fonts.length - 6} more fonts</p>
+            )}
           </div>
 
           <div className="pt-2 border-t border-gray-200">
