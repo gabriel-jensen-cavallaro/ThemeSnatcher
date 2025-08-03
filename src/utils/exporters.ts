@@ -1,19 +1,51 @@
-import { ThemeData, ColorInfo, FontInfo, SpacingInfo, ComponentInfo } from '../types/theme'
-import { NameGenerator } from './nameGenerator'
-import { generateColorScale } from './colorUtils'
+import { ThemeData, FontInfo, SpacingInfo, ComponentInfo } from '../types/theme'
 
 export class ThemeExporter {
-  private nameGenerator = new NameGenerator()
 
   exportTailwindConfig(theme: ThemeData): string {
-    const semanticColors = this.nameGenerator.generateSemanticColorNames(theme.colors)
-    const semanticFonts = this.nameGenerator.generateFontNames(theme.fonts)
+    const colors: Record<string, any> = {}
+    const fonts: Record<string, string[]> = {}
+    
+    // Use smart role-based naming, prioritizing CSS variables
+    theme.colors.forEach(color => {
+      let name = color.role || color.category || 'color'
+      
+      // If this came from a CSS variable, use a cleaner name
+      if (color.cssVariable) {
+        const cleanName = color.cssVariable
+          .replace('--', '')
+          .replace(/[-_]/g, '-')
+          .toLowerCase()
+        
+        // Use the clean variable name if it's meaningful, otherwise fall back to role
+        if (cleanName.length > 2 && !cleanName.match(/^\d+$/)) {
+          name = cleanName
+        }
+      }
+      
+      // Avoid duplicates by adding suffix if needed
+      let finalName = name
+      let counter = 1
+      while (colors[finalName] && colors[finalName] !== color.hex) {
+        finalName = `${name}-${counter}`
+        counter++
+      }
+      
+      colors[finalName] = color.hex
+    })
+    
+    theme.fonts.forEach(font => {
+      const name = font.role || font.category || 'font'
+      if (!fonts[name]) {
+        fonts[name] = font.family.split(',').map(f => f.trim().replace(/"/g, ''))
+      }
+    })
     
     const config = {
       theme: {
         extend: {
-          colors: this.generateTailwindColors(semanticColors, theme.colors),
-          fontFamily: this.generateTailwindFonts(semanticFonts),
+          colors,
+          fontFamily: fonts,
           fontSize: this.generateTailwindFontSizes(theme.fonts),
           spacing: this.generateTailwindSpacing(theme.spacing),
           borderRadius: this.generateTailwindBorderRadius(theme.components),
@@ -27,25 +59,18 @@ export default ${JSON.stringify(config, null, 2)}`
   }
 
   exportSCSSVariables(theme: ThemeData): string {
-    const semanticColors = this.nameGenerator.generateSemanticColorNames(theme.colors)
-    const semanticFonts = this.nameGenerator.generateFontNames(theme.fonts)
-    
     let scss = '// Generated SCSS Variables\n\n'
     
-    // Colors
+    // Colors with role-based names
     scss += '// Colors\n'
-    Object.entries(semanticColors).forEach(([name, color]) => {
-      scss += `$color-${name}: ${color.hex};\n`
-      
-      // Generate color scale
-      const scale = generateColorScale(color.rgb)
-      Object.entries(scale).forEach(([shade, hex]) => {
-        scss += `$color-${name}-${shade}: ${hex};\n`
-      })
+    theme.colors.forEach(color => {
+      const name = color.role || color.category || 'color'
+      scss += `$${name}: ${color.hex};\n`
     })
     
     scss += '\n// Typography\n'
-    Object.entries(semanticFonts).forEach(([name, font]) => {
+    theme.fonts.forEach(font => {
+      const name = font.role || font.category || 'font'
       scss += `$font-${name}: ${this.formatFontFamily(font.family)};\n`
       scss += `$font-${name}-weight: ${font.weight};\n`
       scss += `$font-${name}-size: ${font.size};\n`
@@ -60,24 +85,17 @@ export default ${JSON.stringify(config, null, 2)}`
   }
 
   exportCSSCustomProperties(theme: ThemeData): string {
-    const semanticColors = this.nameGenerator.generateSemanticColorNames(theme.colors)
-    const semanticFonts = this.nameGenerator.generateFontNames(theme.fonts)
-    
     let css = '/* Generated CSS Custom Properties */\n:root {\n'
     
-    // Colors
-    Object.entries(semanticColors).forEach(([name, color]) => {
-      css += `  --color-${name}: ${color.hex};\n`
-      
-      // Generate color scale
-      const scale = generateColorScale(color.rgb)
-      Object.entries(scale).forEach(([shade, hex]) => {
-        css += `  --color-${name}-${shade}: ${hex};\n`
-      })
+    // Colors with role-based names
+    theme.colors.forEach(color => {
+      const name = color.role || color.category || 'color'
+      css += `  --${name}: ${color.hex};\n`
     })
     
     // Typography
-    Object.entries(semanticFonts).forEach(([name, font]) => {
+    theme.fonts.forEach(font => {
+      const name = font.role || font.category || 'font'
       css += `  --font-${name}: ${this.formatFontFamily(font.family)};\n`
       css += `  --font-${name}-weight: ${font.weight};\n`
       css += `  --font-${name}-size: ${font.size};\n`
@@ -92,29 +110,6 @@ export default ${JSON.stringify(config, null, 2)}`
     return css
   }
 
-  private generateTailwindColors(semanticColors: Record<string, ColorInfo>, _allColors: ColorInfo[]): Record<string, any> {
-    const colors: Record<string, any> = {}
-    
-    Object.entries(semanticColors).forEach(([name, color]) => {
-      const scale = generateColorScale(color.rgb)
-      colors[name] = {
-        DEFAULT: color.hex,
-        ...scale
-      }
-    })
-    
-    return colors
-  }
-
-  private generateTailwindFonts(semanticFonts: Record<string, FontInfo>): Record<string, string[]> {
-    const fonts: Record<string, string[]> = {}
-    
-    Object.entries(semanticFonts).forEach(([name, font]) => {
-      fonts[name] = this.parseFontFamily(font.family)
-    })
-    
-    return fonts
-  }
 
   private generateTailwindFontSizes(fonts: FontInfo[]): Record<string, string> {
     const sizes: Record<string, string> = {}
@@ -179,10 +174,5 @@ export default ${JSON.stringify(config, null, 2)}`
   private formatFontFamily(family: string): string {
     // Clean up font family string
     return family.replace(/"/g, '').split(',')[0].trim()
-  }
-
-  private parseFontFamily(family: string): string[] {
-    // Parse font family into array format for Tailwind
-    return family.replace(/"/g, '').split(',').map(f => f.trim())
   }
 }

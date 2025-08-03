@@ -4,6 +4,9 @@ export interface ColorInfo {
   frequency: number
   elements: string[]
   category: 'background' | 'text' | 'border' | 'accent'
+  role?: 'primary' | 'secondary' | 'accent' | 'background' | 'surface' | 'text' | 'textSecondary' | 'button' | 'border'
+  contexts?: string[]
+  cssVariable?: string // The original CSS variable name if extracted from CSS
 }
 
 export interface FontInfo {
@@ -13,6 +16,8 @@ export interface FontInfo {
   lineHeight: string
   elements: string[]
   category: 'heading' | 'body' | 'accent'
+  role?: 'heading' | 'body' | 'accent'
+  contexts?: string[]
 }
 
 export interface SpacingInfo {
